@@ -1,0 +1,1428 @@
+<?php
+include 'db.php';
+/* =========================
+   FILTER VALUES
+========================= */
+$types = $_GET['type'] ?? null;
+$travel = $_GET['travel'] ?? null;
+
+/* FORCE ARRAY SAFETY (supports old + future system) */
+if (!is_array($types)) {
+    $types = $types ? [$types] : [];
+}
+
+if (!is_array($travel)) {
+    $travel = $travel ? [$travel] : [];
+}
+
+$family = isset($_GET['family']) ? 1 : 0;
+$group = isset($_GET['group']) ? 1 : 0;
+/* =========================
+   MAIN QUERY
+========================= */
+/* =========================
+   MAIN QUERY
+========================= */
+$sql = "SELECT * FROM packagess WHERE 1=1";
+$params = [];
+$bindTypes = "";
+
+/* ===== TYPE FILTER (MULTI-SELECT) ===== */
+if (!empty($types)) {
+
+    $placeholders = implode(',', array_fill(0, count($types), '?'));
+    $sql .= " AND type IN ($placeholders)";
+
+    foreach ($types as $t) {
+        $params[] = $t;
+        $bindTypes .= "s";
+    }
+}
+
+/* ===== TRAVEL TIME FILTER (MULTI-SELECT) ===== */
+if (!empty($travel)) {
+
+    $placeholders = implode(',', array_fill(0, count($travel), '?'));
+    $sql .= " AND travel_time_group IN ($placeholders)";
+
+    foreach ($travel as $tr) {
+        $params[] = $tr;
+        $bindTypes .= "s";
+    }
+}
+
+/* ===== FAMILY FRIENDLY ===== */
+if ($family == 1) {
+    $sql .= " AND is_family_friendly = 1";
+}
+
+/* ===== SMALL GROUP ===== */
+if (!empty($group) && $group == 1) {
+    $sql .= " AND is_small_group = 1";
+}
+
+/* ===== LIMIT ===== */
+if (empty($types) && empty($travel)) {
+    $sql .= " ORDER BY RAND() LIMIT 15";
+} else {
+    $sql .= " ORDER BY RAND() LIMIT 12";
+}
+
+/* ===== PREPARE ===== */
+$stmt = $conn->prepare($sql);
+
+/* ===== BIND ===== */
+if (!empty($params)) {
+    $stmt->bind_param($bindTypes, ...$params);
+}
+
+/* ===== EXECUTE ===== */
+$stmt->execute();
+
+$result = $stmt->get_result();
+?>
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tanzania Nomad | Safari Packages</title>
+<!-- FONT AWESOME -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<!-- GOOGLE FONTS -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+html{
+    scroll-behavior:smooth;
+}
+body{
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+    background:#fff;
+}
+/* ======================================================
+   TOP BAR
+====================================================== */
+.top-bar{
+    position:fixed;
+    top:0;
+    width:100%;
+    z-index:3000;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:6px 5%;
+    background:#faf9f7;
+}
+.top-bar .logo img{
+    max-height:65px;
+}
+/* NAV */
+.top-nav{
+    display:none;
+    list-style:none;
+    gap:35px;
+}
+.top-nav a{
+    color:#333;
+    text-decoration:none;
+    font-size:14px;
+    font-weight:500;
+    position:relative;
+}
+.top-nav a::after{
+    content:"";
+    position:absolute;
+    width:0;
+    height:2px;
+    background:#D7A819;
+    bottom:-5px;
+    left:0;
+    transition:0.3s;
+}
+.top-nav a:hover::after,
+.top-nav a.active::after{
+    width:100%;
+}
+.top-nav a.active{
+    color:#D7A819;
+}
+/* INQUIRE BUTTON */
+.inquire-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:12px 24px;
+    border-radius:30px;
+    text-decoration:none;
+    background:#9b6412;
+    color:#fff;
+    font-size:14px;
+    font-weight:500;
+    transition:.3s;
+}
+.inquire-btn:hover{
+    background:#7f500d;
+}
+/* ======================================================
+   HAMBURGER
+====================================================== */
+.hamburger{
+    position:fixed;
+    top:100px;
+    right:20px;
+    font-size:40px;
+    cursor:pointer;
+    z-index:6000;
+    color:#AB7D15;
+}
+/* ======================================================
+   MOBILE MENU
+====================================================== */
+.mobile-menu{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100vh;
+    height:100dvh; /* mobile browser fix */
+    background:#f7f7f5;
+    padding:25px 20px;
+    transform:translateY(-100%);
+    transition:0.4s ease;
+    z-index:5000;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+}
+.mobile-menu.active{
+    transform:translateY(0);
+}
+.mobile-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.mobile-top span{
+    font-size:18px;
+    font-weight:600;
+}
+.mobile-links a{
+    display:block;
+    font-size:18px;
+    font-weight:600;
+    padding:16px 0;
+    border-bottom:1px solid #ccc;
+    color:#2f3e2f;
+    text-decoration:none;
+}
+.mobile-cta a{
+    display:block;
+    background:#c94c2c;
+    color:#fff;
+    padding:16px;
+    text-align:center;
+    text-decoration:none;
+}
+/* ======================================================
+   RESPONSIVE
+====================================================== */
+@media (min-width:992px){
+    .top-nav{
+        display:flex;
+        margin:0 auto;
+    }
+    .hamburger{
+        display:none;
+    }
+    .mobile-menu{
+        display:none;
+    }
+}
+/* TABLET */
+@media (max-width:991px){
+    .hero-slide-text h1{
+        font-size:54px;
+    }
+    .hero-slide-text p{
+        font-size:15px;
+    }
+}
+/* MOBILE */
+@media (max-width:768px){
+    .hero{
+        min-height:20vh;
+    }
+    .hero-slide-texts{
+        text-align:center;
+        padding:0 24px;
+    }
+    .hero-slide-text{
+        max-width:100%;
+    }
+    .hero-slide-text span{
+        font-size:11px;
+        letter-spacing:3px;
+        margin-bottom:14px;
+    }
+    .hero-slide-text h1{
+        font-size:34px;
+        line-height:1.2;
+        margin-bottom:16px;
+    }
+    .hero-slide-text p{
+        font-size:14px;
+        line-height:1.8;
+        max-width:100%;
+    }
+    .hero-slide-text::after{
+        margin:24px auto 0;
+        width:70px;
+    }
+    .top-bar{
+        padding:10px 5%;
+    }
+    .top-bar .logo img{
+        max-height:55px;
+    }
+    .inquire-btn{
+        padding:10px 18px;
+        font-size:13px;
+    }
+    .hamburger{
+        top:90px;
+        font-size:34px;
+    }
+    .hero::after{
+        height:90px;
+        bottom:-45px;
+    }
+}
+/* SMALL MOBILE */
+@media (max-width:480px){
+    .hero-slide-text h1{
+        font-size:28px;
+    }
+    .hero-slide-text p{
+        font-size:13px;
+    }
+}
+</style>
+</head>
+<body>
+
+
+
+<!-- ======================================================
+     HERO SECTION
+====================================================== -->
+<section class="hero-wrapper" id="hero">
+    <!-- TOP BAR -->
+    <div class="top-bar">
+        <div class="logo">
+            <img src="2.png" alt="Tanzania Nomad">
+        </div>
+        <ul class="top-nav">
+            <li><a href="index.php">HOME</a></li>
+             <li> <a href="filter.php" class="active">ITINERARIES</a></li>
+            <li><a href="safari.php">SAFARI</a></li>
+            <li><a href="Trekking.php">TREKKING</a></li>
+            <li><a href="zanzibar.php">ZANZIBAR</a></li>
+            <li><a href="day.php">DAY TRIPS</a></li>
+        </ul>
+        <!-- KEEP SAME BUTTON -->
+        <a href="#" class="inquire-btn">
+            <i class="fa-solid fa-paper-plane"></i> INQUIRE
+        </a>
+    </div>
+    <!-- HAMBURGER -->
+    <div class="hamburger" onclick="toggleMenu()">
+        <i id="menuIcon" class="fa-solid fa-bars"></i>
+    </div>
+    <!-- MOBILE MENU -->
+    <div class="mobile-menu" id="mobileMenu">
+        <div>
+            <div class="mobile-top">
+                <div class="mobile-close" onclick="toggleMenu()">
+                </div>
+            </div>
+            <div class="mobile-links">
+                <a href="index.php">HOME</a>
+                <a href="filter.php" class="active">ITINERARIES</a>
+                <a href="safari.php">SAFARI</a>
+                <a href="Trekking.php">TREKKING</a>
+                <a href="zanzibar.php">ZANZIBAR</a>
+                <a href="day.php">DAY TRIPS</a>
+            </div>
+
+        </div>
+
+        <div class="mobile-cta">
+            <a href="#">TRAVEL PROPOSAL</a>
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+
+
+<!-- ================= PROFESSIONAL MOBILE FILTER SECTION ================= -->
+<style>
+/* ===== MOBILE FILTER TOOLBAR ===== */
+.mobile-filter-top{
+    display:none;
+    width:min(1320px,92%);
+    margin:0 auto 24px;
+    padding-top:88px; /* clears fixed top bar, aligns with hamburger */
+    font-family:'Inter',sans-serif;
+}
+.mobile-filter-top *,
+.mobile-filter-overlay *{
+    font-family:'Inter',sans-serif;
+}
+.mf-heading{
+    min-height:36px;
+    padding-right:46px; /* keeps text clear of the floating hamburger */
+    margin-bottom:18px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+.mf-eyebrow{
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:#9b6412;
+    margin-bottom:3px;
+}
+.mf-heading h2{
+    font-size:22px;
+    line-height:1.25;
+    font-weight:700;
+    color:#2d2d2d;
+}
+.mf-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    background:#fff;
+    border:1px solid #e3dccb;
+    padding:10px 10px 10px 16px;
+}
+.mf-count{
+    font-size:14px;
+    color:#555;
+    line-height:1.3;
+}
+.mf-count strong{
+    color:#2d2d2d;
+    font-weight:700;
+}
+.mobile-filter-open{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    background:#556b2f;
+    color:#fff;
+    border:none;
+    outline:none;
+    border-radius:3px;
+    padding:13px 22px;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+}
+.mobile-filter-open:active{
+    background:#3d4e21;
+}
+.mf-badge{
+    min-width:20px;
+    height:20px;
+    padding:0 6px;
+    border-radius:10px;
+    background:#fff;
+    color:#556b2f;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+}
+/* ===== ACTIVE FILTER CHIPS ===== */
+.mf-chips{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:12px;
+    overflow-x:auto;
+    padding-bottom:2px;
+    scrollbar-width:none;
+}
+.mf-chips::-webkit-scrollbar{
+    display:none;
+}
+.mf-chip{
+    flex-shrink:0;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:7px 10px 7px 12px;
+    background:#eef1e6;
+    border:1px solid #d5dcc3;
+    color:#3f4f20;
+    font-size:12.5px;
+    font-weight:600;
+    text-decoration:none;
+}
+.mf-chip b{
+    font-size:16px;
+    font-weight:500;
+    line-height:1;
+}
+.mf-clear-all{
+    flex-shrink:0;
+    padding:7px 6px;
+    font-size:12.5px;
+    font-weight:600;
+    color:#c7512d;
+    text-decoration:none;
+}
+
+/* ===== OVERLAY ===== */
+.mobile-filter-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(20,18,12,0.55);
+    z-index:999999;
+    opacity:0;
+    visibility:hidden;
+    transition:.3s ease;
+}
+.mobile-filter-overlay.active{
+    opacity:1;
+    visibility:visible;
+}
+
+/* ===== BOTTOM SHEET ===== */
+.mobile-filter-sidebar{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    width:100%;
+    max-width:560px;
+    margin:0 auto;
+    height:86vh;
+    height:86dvh;
+    display:flex;
+    flex-direction:column;
+    background:#fff;
+    border-radius:16px 16px 0 0;
+    transform:translateY(100%);
+    transition:transform .38s cubic-bezier(.22,.8,.3,1);
+    overflow:hidden;
+}
+.mobile-filter-overlay.active .mobile-filter-sidebar{
+    transform:translateY(0);
+}
+
+/* HEADER */
+.filter-mobile-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:20px 22px 18px;
+    border-bottom:1px solid #e8e2d4;
+    flex-shrink:0;
+}
+.filter-mobile-top h2{
+    font-size:20px;
+    font-weight:700;
+    color:#2d2d2d;
+    margin:0;
+    letter-spacing:0;
+}
+.filter-mobile-top p{
+    font-size:13px;
+    color:#777;
+    margin-top:3px;
+}
+.close-filter{
+    width:38px;
+    height:38px;
+    border:1px solid #e0d9c8;
+    border-radius:50%;
+    background:#fff;
+    color:#333;
+    font-size:24px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    padding:0 0 3px;
+    -webkit-tap-highlight-color:transparent;
+}
+
+/* SCROLL AREA */
+.mf-body{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+}
+.mf-body::-webkit-scrollbar{
+    display:none;
+}
+
+/* SECTION LABEL BAND */
+.mobile-filter-group h3{
+    background:#f3efe4;
+    color:#556b2f;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:1.6px;
+    text-transform:uppercase;
+    padding:13px 22px;
+    margin:0;
+    border-top:1px solid #e8e2d4;
+    border-bottom:1px solid #e8e2d4;
+}
+.mobile-filter-group:first-child h3{
+    border-top:none;
+}
+
+/* OPTION ROWS */
+.mobile-filter-group a{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    min-height:58px;
+    padding:0 22px;
+    background:#fff;
+    border-bottom:1px solid #f0ebde;
+    color:#2f2f2f;
+    font-size:16px;
+    font-weight:500;
+    text-decoration:none;
+    -webkit-tap-highlight-color:transparent;
+}
+.mobile-filter-group a:last-child{
+    border-bottom:none;
+}
+.mobile-filter-group a:active{
+    background:#f7f4ec;
+}
+.mobile-filter-group a.selected{
+    background:#f6f8f0;
+    color:#3d4e21;
+    font-weight:600;
+}
+
+/* SQUARE CHECKBOX (matches desktop sidebar) */
+.mf-box{
+    position:relative;
+    width:24px;
+    height:24px;
+    min-width:24px;
+    border:2px solid #556b2f;
+    background:#fff;
+    border-radius:2px;
+}
+.mobile-filter-group a.selected .mf-box{
+    background:#556b2f;
+}
+.mobile-filter-group a.selected .mf-box::after{
+    content:"";
+    position:absolute;
+    left:7px;
+    top:2px;
+    width:6px;
+    height:12px;
+    border:solid #fff;
+    border-width:0 2.5px 2.5px 0;
+    transform:rotate(45deg);
+}
+
+/* STICKY FOOTER */
+.mf-footer{
+    display:flex;
+    gap:12px;
+    padding:14px 22px calc(14px + env(safe-area-inset-bottom,0px));
+    background:#fff;
+    border-top:1px solid #e8e2d4;
+    flex-shrink:0;
+}
+.mf-clear{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 22px;
+    border:1.5px solid #556b2f;
+    border-radius:3px;
+    color:#556b2f;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    text-decoration:none;
+}
+.mf-clear.disabled{
+    opacity:.35;
+    pointer-events:none;
+}
+.mf-apply{
+    flex:1;
+    border:none;
+    border-radius:3px;
+    background:#556b2f;
+    color:#fff;
+    padding:17px 14px;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+}
+.mf-apply:active{
+    background:#3d4e21;
+}
+
+/* ===== MOBILE / TABLET ONLY ===== */
+@media(max-width:900px){
+    .mobile-filter-top{
+        display:block;
+    }
+    .filter-sidebar{
+        display:none;
+    }
+    /* count now shown in the toolbar above, so hide the duplicate */
+    .packages-side .package-top{
+        display:none;
+    }
+}
+@media(min-width:769px) and (max-width:900px){
+    .mobile-filter-top{
+        padding-top:96px;
+    }
+}
+@media(max-width:380px){
+    .mobile-filter-open{
+        padding:13px 16px;
+        letter-spacing:.5px;
+    }
+}
+/* ===== DESKTOP ===== */
+@media(min-width:901px){
+    .mobile-filter-top,
+    .mobile-filter-overlay{
+        display:none !important;
+    }
+}
+</style>
+
+<?php
+/* ---- helpers for the mobile filter (display only, filter logic unchanged) ---- */
+if(!function_exists('mf_url')){
+    function mf_url($types,$travel,$family,$group){
+        $q = [];
+        if(!empty($types))  $q['type']   = array_values($types);
+        if(!empty($travel)) $q['travel'] = array_values($travel);
+        if($family)         $q['family'] = 1;
+        if($group)          $q['group']  = 1;
+        return 'filter.php' . ($q ? '?' . http_build_query($q) : '');
+    }
+}
+$mfTravelLabels = ['1-5'=>'1–5 Days','6-11'=>'6–11 Days','12plus'=>'12+ Days'];
+$mfActive = count($types) + count($travel) + $family + $group;
+$mfCount  = (int)$result->num_rows;
+
+$mfChips = [];
+foreach($types as $t){
+    $mfChips[] = ['label'=>$t, 'url'=>mf_url(array_diff($types,[$t]),$travel,$family,$group)];
+}
+foreach($travel as $tr){
+    $mfChips[] = ['label'=>($mfTravelLabels[$tr] ?? $tr), 'url'=>mf_url($types,array_diff($travel,[$tr]),$family,$group)];
+}
+if($family){
+    $mfChips[] = ['label'=>'Family Friendly', 'url'=>mf_url($types,$travel,0,$group)];
+}
+if($group){
+    $mfChips[] = ['label'=>'Small Group Trip', 'url'=>mf_url($types,$travel,$family,0)];
+}
+
+/* query strings carried between links (same as before) */
+$mfTypeQ = '';
+foreach($types as $t){
+    $mfTypeQ .= '&type[]=' . urlencode($t);
+}
+$mfTravelQ = '';
+foreach($travel as $tr){
+    $mfTravelQ .= '&travel[]=' . urlencode($tr);
+}
+?>
+
+<!-- ===== MOBILE TOOLBAR ===== -->
+<div class="mobile-filter-top">
+
+    <div class="mf-heading">
+
+    </div>
+
+    <div class="mf-bar">
+        <div class="mf-count">
+            <strong><?= $mfCount ?></strong> <?= $mfCount == 1 ? 'trip found' : 'trips found' ?>
+        </div>
+
+        <button type="button" class="mobile-filter-open" onclick="openMobileFilter()" aria-haspopup="dialog" aria-controls="mobileFilter">
+            Filter Now
+            <?php if($mfActive > 0): ?>
+                <span class="mf-badge"><?= $mfActive ?></span>
+            <?php endif; ?>
+        </button>
+    </div>
+
+
+
+</div>
+
+
+<!-- ===== MOBILE FILTER SHEET ===== -->
+<div class="mobile-filter-overlay" id="mobileFilter" role="dialog" aria-modal="true" aria-label="Filter trips">
+    <div class="mobile-filter-sidebar">
+
+        <!-- HEADER -->
+        <div class="filter-mobile-top">
+            <div>
+                <h2>Filters</h2>
+                <p><?= $mfActive > 0 ? $mfActive . ' selected' : 'Refine your safari search' ?></p>
+            </div>
+            <button type="button" class="close-filter" onclick="closeMobileFilter()" aria-label="Close filters">&times;</button>
+        </div>
+
+        <!-- OPTIONS -->
+        <form method="GET" action="filter.php" class="mf-body">
+
+            <!-- TRIP TYPE -->
+            <div class="mobile-filter-group">
+                <h3>Trip Type</h3>
+
+                <a href="filter.php?type[]=Safari" class="<?= in_array('Safari',$types) ? 'selected' : '' ?>">
+                    <span>Safari</span><span class="mf-box"></span>
+                </a>
+
+                <a href="filter.php?type[]=Zanzibar" class="<?= in_array('Zanzibar',$types) ? 'selected' : '' ?>">
+                    <span>Zanzibar</span><span class="mf-box"></span>
+                </a>
+
+                <a href="filter.php?type[]=Kilimanjaro" class="<?= in_array('Kilimanjaro',$types) ? 'selected' : '' ?>">
+                    <span>Kilimanjaro</span><span class="mf-box"></span>
+                </a>
+
+                <a href="filter.php?type=Day Trip" class="<?= in_array('Day Trip',$types) ? 'selected' : '' ?>">
+                    <span>Day Trip</span><span class="mf-box"></span>
+                </a>
+            </div>
+
+            <!-- TRAVEL STYLE -->
+            <div class="mobile-filter-group">
+                <h3>Travel Style</h3>
+
+                <a href="filter.php?family=1<?= $mfTypeQ . $mfTravelQ ?><?= $group ? '&group=1' : '' ?>" class="<?= $family == 1 ? 'selected' : '' ?>">
+                    <span>Family Friendly</span><span class="mf-box"></span>
+                </a>
+
+                <a href="filter.php?group=1<?= $mfTypeQ . $mfTravelQ ?><?= $family ? '&family=1' : '' ?>" class="<?= $group == 1 ? 'selected' : '' ?>">
+                    <span>Small Group Trip</span><span class="mf-box"></span>
+                </a>
+            </div>
+
+            <!-- TRAVEL TIME -->
+            <div class="mobile-filter-group">
+                <h3>Travel Time</h3>
+
+                <a href="filter.php?travel[]=1-5<?= $mfTypeQ ?>" class="<?= in_array('1-5',$travel) ? 'selected' : '' ?>">
+                    <span>1–5 Days</span><span class="mf-box"></span>
+                </a>
+
+                <a href="filter.php?travel[]=6-11<?= $mfTypeQ ?>" class="<?= in_array('6-11',$travel) ? 'selected' : '' ?>">
+                    <span>6–11 Days</span><span class="mf-box"></span>
+                </a>
+
+                <a href="filter.php?travel[]=12plus<?= $mfTypeQ ?>" class="<?= in_array('12plus',$travel) ? 'selected' : '' ?>">
+                    <span>12+ Days</span><span class="mf-box"></span>
+                </a>
+            </div>
+
+        </form>
+
+
+    </div>
+</div>
+
+
+<script>
+function openMobileFilter(){
+    document.getElementById("mobileFilter").classList.add("active");
+    document.body.style.overflow = "hidden";
+}
+function closeMobileFilter(){
+    document.getElementById("mobileFilter").classList.remove("active");
+    document.body.style.overflow = "";
+}
+/* CLOSE OUTSIDE */
+document.getElementById("mobileFilter").addEventListener("click", function(e){
+    if(e.target === this){
+        closeMobileFilter();
+    }
+});
+/* CLOSE WITH ESC */
+document.addEventListener("keydown", function(e){
+    if(e.key === "Escape"){
+        closeMobileFilter();
+    }
+});
+</script>
+
+
+<!-- ================= UPDATED FILTER + PACKAGE SECTION ================= -->
+<div  id="packages-section"></div>
+<section class="filter-layout">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* ===== MAIN LAYOUT ===== */
+.filter-layout{
+    width:min(1320px, 92%);
+    margin:auto;
+    display:grid;
+    grid-template-columns:230px 1fr;
+    gap:32px;
+    padding:90px 0 80px;
+    font-family:'Inter',sans-serif;
+}
+/* ================= SIDEBAR ================= */
+.filter-sidebar{
+    position:sticky;
+    top:110px;
+    height:fit-content;
+}
+/* FILTER BOX */
+.filter-box{
+    margin-bottom:42px;
+}
+
+.filter-box h3{
+    font-size:18px;
+    margin-bottom:18px;
+    color:#556b2f;
+    font-weight:700;
+}
+
+/* FILTER LINKS */
+.filter-box a{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    text-decoration:none;
+    color:#3f3f3f;
+    font-size:14px;
+    margin-bottom:14px;
+    transition:.25s ease;
+}
+
+/* CUSTOM CHECKBOX */
+.filter-box a span{
+    width:18px;
+    height:18px;
+    min-width:18px;
+
+    border:1.5px solid #556b2f;
+    background:#fff;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    color:#556b2f;
+    font-size:10px;
+}
+
+/* CHECK ICON */
+.filter-box a span i{
+    color:#556b2f;
+    font-size:10px;
+}
+
+/* HOVER */
+.filter-box a:hover{
+    color:#556b2f;
+    transform:translateX(3px);
+}
+/* ================= RIGHT SIDE ================= */
+.packages-side{
+    width:100%;
+}
+/* TOP */
+.package-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+}
+.package-results{
+    font-size:16px;
+    font-weight:600;
+    color:#333;
+}
+.package-sort{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+.package-sort span{
+    font-size:13px;
+    color:#555;
+}
+.package-sort select{
+    height:42px;
+    padding:0 14px;
+    border:none;
+    background:#ded3bf;
+    font-size:13px;
+    color:#444;
+    min-width:190px;
+}
+/* NOTE */
+.package-note{
+    background:#556b2f;
+    color:#fff;
+    padding:18px 22px;
+    font-size:14px;
+    line-height:1.8;
+    margin-bottom:26px;
+}
+/* ================= PACKAGE CARD ================= */
+.package-card{
+    background:#ded3bf;
+    display:grid;
+    grid-template-columns:320px 1fr;
+    margin-bottom:24px;
+    overflow:hidden;
+    position:relative;
+}
+/* IMAGE */
+.package-image{
+    position:relative;
+}
+.package-image img{
+    width:100%;
+    height:100%;
+    min-height:240px;
+    object-fit:cover;
+}
+/* POPULAR */
+.popular-tag{
+    position:absolute;
+    top:16px;
+    right:16px;
+    background:#f5f1e8;
+    padding:8px 14px;
+    font-size:12px;
+    font-weight:600;
+    color:#556b2f;
+}
+/* CONTENT */
+.package-content{
+    padding:24px 26px 22px;
+    position:relative;
+}
+/* TITLE */
+.package-content h3{
+    font-size:22px;
+    line-height:1.4;
+    margin-bottom:18px;
+    color:#2d2d2d;
+    max-width:80%;
+}
+/* LIST */
+.package-content ul{
+    padding-left:18px;
+    margin-bottom:22px;
+}
+.package-content li{
+    margin-bottom:10px;
+    color:#333;
+    font-size:14px;
+    line-height:1.6;
+}
+/* META */
+.package-meta{
+    display:flex;
+    gap:20px;
+    margin-bottom:22px;
+    color:#556b2f;
+    font-size:13px;
+    font-weight:600;
+}
+/* BUTTON */
+.package-btn{
+    display:block;
+    background:#556b2f;
+    color:#fff;
+    text-decoration:none;
+    text-align:center;
+    padding:15px;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:1px;
+    transition:.3s;
+}
+.package-btn:hover{
+    background:#3d4e21;
+}
+/* PRICE */
+.package-price{
+    position:absolute;
+    top:0;
+    right:0;
+    background:#c7512d;
+    color:#fff;
+    width:150px;
+    height:115px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:flex-end;
+    padding-top:18px;
+    padding-right:14px;
+    text-align:right;
+   font-size:14px;
+    font-weight:700;
+    line-height:1.5;
+    clip-path:polygon(100% 0,100% 100%,0 0);
+}
+/* ================= RESPONSIVE ================= */
+@media(max-width:1100px){
+    .package-card{
+        grid-template-columns:1fr;
+    }
+    .package-content h3{
+        max-width:100%;
+    }
+}
+/* TABLET */
+@media(max-width:900px){
+    .filter-layout{
+        grid-template-columns:1fr;
+        padding-top:0; /* spacing now handled by .mobile-filter-top */
+    }
+    .filter-sidebar{
+        display:none;
+    }
+}
+/* ================= MOBILE PACKAGE CARD FIXED ================= */
+@media(max-width:650px){
+    .package-card{
+        display:block;
+        background:#ddd4c4;
+        overflow:hidden;
+        margin-bottom:24px;
+    }
+    /* IMAGE */
+    .package-image{
+        position:relative;
+        line-height:0; /* removes white gap under image */
+    }
+    .package-image img{
+        width:100%;
+        height:240px;
+        object-fit:cover;
+        display:block;
+    }
+    /* POPULAR */
+    .popular-tag{
+        position:absolute;
+        top:16px;
+        right:16px;
+        background:#f5f1e8;
+        padding:8px 14px;
+        font-size:13px;
+        font-weight:600;
+        color:#556b2f;
+    }
+    /* PRICE BAR */
+    .package-price{
+        width:100%;
+        height:46px;
+        background:#556b2f;
+        margin:0;
+        padding:0 18px;
+        display:flex;
+        align-items:center;
+        justify-content:flex-start;
+        color:#f0b24b;
+        font-size:14px;
+        font-weight:700;
+        letter-spacing:.5px;
+        position:relative;
+        clip-path:none;
+    }
+    /* CONTENT */
+    .package-content{
+        padding:14px 20px 24px; /* small spacing after green bar */
+    }
+    /* TITLE */
+    .package-content h3{
+        font-size:17px;
+        line-height:1.5;
+        margin-bottom:16px;
+        color:#2f2f2f;
+        font-weight:700;
+    }
+    /* LIST */
+    .package-content ul{
+        padding-left:20px;
+        margin-bottom:18px;
+    }
+    .package-content li{
+        font-size:14px;
+        line-height:1.8;
+        margin-bottom:8px;
+        color:#333;
+    }
+    /* META */
+    .package-meta{
+        display:flex;
+        gap:12px;
+        flex-wrap:wrap;
+        margin-bottom:20px;
+        font-size:12px;
+    }
+    /* BUTTON */
+    .package-btn{
+        background:#c7512d;
+        padding:16px;
+        font-size:14px;
+        font-weight:700;
+        text-align:center;
+        letter-spacing:1px;
+    }
+}
+
+/* =====================================================================
+   DESKTOP ONLY (901px and up): sidebar + results status
+===================================================================== */
+@media(min-width:901px){
+
+    .filter-layout{
+        grid-template-columns:260px 1fr;
+        gap:40px;
+    }
+
+    /* ---------- SIDEBAR ---------- */
+    .filter-sidebar{
+        background:#fff;
+        border:1px solid #e6dfcf;
+    }
+    .filter-box{
+        margin-bottom:0;
+        padding:24px 24px 14px;
+        border-bottom:1px solid #eee7d7;
+    }
+    .filter-box:last-child{
+        border-bottom:none;
+    }
+    .filter-box h3{
+        font-size:12px;
+        font-weight:700;
+        letter-spacing:1.6px;
+        text-transform:uppercase;
+        color:#556b2f;
+        margin-bottom:12px;
+    }
+    .filter-box a{
+        gap:14px;
+        min-height:42px;
+        margin:0 -10px;
+        padding:0 10px;
+        font-size:14.5px;
+        color:#3d3d3d;
+    }
+    .filter-box a:hover{
+        background:#f7f4ec;
+        color:#3d4e21;
+        transform:none;
+    }
+    .filter-box a.selected{
+        color:#3d4e21;
+        font-weight:600;
+    }
+    .filter-box a span{
+        width:20px;
+        height:20px;
+        min-width:20px;
+        border-radius:2px;
+        font-size:12px;
+        font-weight:700;
+    }
+    .filter-box a.selected span{
+        background:#556b2f;
+        color:#fff;
+    }
+
+    /* ---------- RESULTS STATUS ---------- */
+    .package-top{
+        justify-content:flex-start;
+        padding-bottom:18px;
+        margin-bottom:22px;
+        border-bottom:1px solid #e6dfcf;
+    }
+    .package-results{
+        font-size:15px;
+        font-weight:500;
+        letter-spacing:.3px;
+        color:#6b6554;
+    }
+    .package-results strong{
+        font-size:26px;
+        font-weight:700;
+        letter-spacing:0;
+        color:#2d2d2d;
+        margin-right:4px;
+    }
+}
+</style>
+
+<!-- ================= SIDEBAR ================= -->
+<aside class="filter-sidebar">
+
+    <form method="GET" action="filter.php">
+
+        <div class="filter-box">
+            <h3>Trip Type</h3>
+
+            <a href="filter.php?type[]=Safari" class="<?= in_array('Safari',$types) ? 'selected' : '' ?>"><span><?= in_array('Safari',$types) ? '✓' : '' ?></span>Safari</a>
+            <a href="filter.php?type[]=Zanzibar" class="<?= in_array('Zanzibar',$types) ? 'selected' : '' ?>"><span><?= in_array('Zanzibar',$types) ? '✓' : '' ?></span>Zanzibar</a>
+            <a href="filter.php?type[]=Kilimanjaro" class="<?= in_array('Kilimanjaro',$types) ? 'selected' : '' ?>"><span><?= in_array('Kilimanjaro',$types) ? '✓' : '' ?></span>Kilimanjaro</a>
+            <a href="filter.php?type=Day Trip" class="<?= in_array('Day Trip',$types) ? 'selected' : '' ?>"><span><?= in_array('Day Trip',$types) ? '✓' : '' ?></span>Day Trip</a>
+        </div>
+
+        <div class="filter-box">
+            <h3>Travel Style</h3>
+
+            <a href="filter.php?family=1<?= $mfTypeQ . $mfTravelQ ?><?= $group ? '&group=1' : '' ?>" class="<?= $family == 1 ? 'selected' : '' ?>"><span><?= $family == 1 ? '✓' : '' ?></span>Family Friendly</a>
+            <a href="filter.php?group=1<?= $mfTypeQ . $mfTravelQ ?><?= $family ? '&family=1' : '' ?>" class="<?= $group == 1 ? 'selected' : '' ?>"><span><?= $group == 1 ? '✓' : '' ?></span>Small Group Trip</a>
+        </div>
+
+        <div class="filter-box">
+            <h3>Travel Time</h3>
+
+            <a href="filter.php?travel[]=1-5<?= $mfTypeQ ?>" class="<?= in_array('1-5',$travel) ? 'selected' : '' ?>"><span><?= in_array('1-5',$travel) ? '✓' : '' ?></span>1–5 Days</a>
+            <a href="filter.php?travel[]=6-11<?= $mfTypeQ ?>" class="<?= in_array('6-11',$travel) ? 'selected' : '' ?>"><span><?= in_array('6-11',$travel) ? '✓' : '' ?></span>6–11 Days</a>
+            <a href="filter.php?travel[]=12plus<?= $mfTypeQ ?>" class="<?= in_array('12plus',$travel) ? 'selected' : '' ?>"><span><?= in_array('12plus',$travel) ? '✓' : '' ?></span>12+ Days</a>
+        </div>
+
+    </form>
+</aside>
+
+<!-- ================= PACKAGES ================= -->
+<div class="packages-side">
+    <!-- TOP -->
+    <div class="package-top">
+        <div class="package-results">
+            <strong><?= $mfCount ?></strong> <?= $mfCount == 1 ? 'Result' : 'Results' ?>
+        </div>
+    </div>
+
+    <!-- NOTE -->
+    <div class="package-note">
+        <strong>These are sample itineraries.</strong>
+        All safari trips are customizable depending on your travel interests and experience.
+    </div>
+
+    <!-- LOOP -->
+<?php while($package = $result->fetch_assoc()): ?>
+<div class="package-card">
+
+    <!-- IMAGE -->
+    <div class="package-image">
+        <img src="<?= $package['hero_image'] ?>" alt="">
+    </div>
+
+    <!-- PRICE BAR -->
+    <div class="package-price">
+        FROM $<?= $package['price'] ?>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="package-content">
+
+        <h3>
+            <?= strtoupper($package['package_name']) ?>
+        </h3>
+       <ul>
+
+<?php
+$highlights = explode('|', $package['highlights']);
+foreach($highlights as $item):
+?>
+
+    <li><?= trim($item) ?></li>
+<?php endforeach; ?>
+</ul>
+
+        <div class="package-meta">
+            <span><?= $package['duration'] ?></span>
+            <span><?= $package['country'] ?></span>
+        </div>
+
+        <a href="package.php?id=<?= $package['id'] ?>" class="package-btn">
+            VIEW THIS TRIP
+        </a>
+    </div>
+
+</div>
+<?php endwhile; ?>
+
+</div>
+</section>
+
+
+<!-- ======================================================
+     YOUR EXISTING INQUIRY MODAL SCRIPT WILL STILL WORK
+====================================================== -->
+<script>
+function toggleMenu(){
+    const menu = document.getElementById("mobileMenu");
+    const icon = document.getElementById("menuIcon");
+    menu.classList.toggle("active");
+    if(menu.classList.contains("active")){
+        icon.classList.replace("fa-bars","fa-xmark");
+    } else {
+        icon.classList.replace("fa-xmark","fa-bars");
+    }
+}
+</script>
+</body>
+</html>
